@@ -12,8 +12,14 @@ parser.add_argument('-p', '--password', default='', help='the controller passwor
 parser.add_argument('-b', '--port', default='8443', help='the controller port (default "8443")')
 parser.add_argument('-v', '--version', default='v5', help='the controller base version (default "v5")')
 parser.add_argument('-s', '--siteid', default='default', help='the site ID, UniFi >=3.x only (default "default")')
+parser.add_argument('-V', '--no-ssl-verify', default=False, action='store_true', help='Don\'t verify ssl certificates')
 parser.add_argument('-f', '--file', default='statistics-unifi.csv', help='the filename of write statistics')
 args = parser.parse_args()
+
+ssl_verify = (not args.no_ssl_verify)
+
+if ssl_verify and len(args.certificate) > 0:
+        ssl_verify = args.certificate
 
 c = Controller(args.controller, args.username, args.password, args.port, args.version, args.siteid)
 
