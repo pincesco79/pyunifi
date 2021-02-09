@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+
+import argparse
+import pandas as pd
+
+from pyunifi.controller import Controller
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-c', '--controller', default='unifi', help='the controller address (default "unifi")')
+parser.add_argument('-u', '--username', default='admin', help='the controller username (default("admin")')
+parser.add_argument('-p', '--password', default='', help='the controller password')
+parser.add_argument('-b', '--port', default='8443', help='the controller port (default "8443")')
+parser.add_argument('-v', '--version', default='v5', help='the controller base version (default "v5")')
+parser.add_argument('-s', '--siteid', default='default', help='the site ID, UniFi >=3.x only (default "default")')
+parser.add_argument('-V', '--no-ssl-verify', default=False, action='store_true', help='Don\'t verify ssl certificates')
+parser.add_argument('-C', '--certificate', default='', help='verify with ssl certificate pem file')
+parser.add_argument('-f', '--file', default='statistics-unifi.csv', help='the filename of write statistics')
+args = parser.parse_args()
+
+ssl_verify = (not args.no_ssl_verify)
+
+if ssl_verify and len(args.certificate) > 0:
+        ssl_verify = args.certificate
+
+site_dict = {
+  "CentroResidenziale": "2p3dxxah",
+  "Chiodo1": "dhyo0uoy",
+  "Chiodo2": "f770l5a0",
+  "Maisonnettes": "default",
+  "MartenssonA": "i8uq0l44",
+  "Molicelle": "dssbmwmi",
+  "Monaci" : "1gm9d0wt",
+  "Nervoso" : "ottwtez9",
+  "San Gennaro" : "tsj7u14e"
+}
+# for site in site_dict:
+
+c = Controller(args.controller, args.username, args.password, args.port, args.version, args.siteid, ssl_verify=ssl_verify)
+aps = c.get_aps()
+#ap_names = dict([(ap['mac'], ap.get('name', '????')) for ap in aps]) #crea coppia { mac1: name1, mac2: name2....}  
+#clients = c.get_clients()
+#clients.sort(key=lambda x: -x.get('rssi', 100))
+#aps.sort(key=lambda x: -x.get('name', 'a'))
+FORMAT = '%-16s  %35s  %-12s  %4s  %4s  %3s  %3s %3s %3s %3s %3s ' 
+print(FORMAT % ('NAME', 'MAC', 'MODEL', 'IP', 'RADIO', 'BUILT_ANTENNA', 'SPEED', 'ETH_PORT', 'LAT', 'LON','MAP_LINK'))
+
+fo = open(args.file, "w")        
+FORMAT_CSV = '%15s;%10s;%25s;%10s;%10s;%10s;%10s;%10s;%10s;%10s;%10s\n'
+fo.write(FORMAT_CSV % ('NAME', 'MAC', 'MODEL', 'IP', 'RADIO', 'OUTDOOR/INDOOR', 'UPLINK_SPEED_Mbps', 'WIRED_PORTS_1000BASE_TX', 'LAT', 'LON','MAP_LINK'));
+
+
+for ap in aps:
+  # ap_name = ap_names.get(client.get('ap_mac', '????'), '????')
+    if ap['type'] == "uap": # if ap['type'] == "usw" 
+        if 'name' in ap:
+            ap_name = ap['name']
+        else:
+            ap_name = '???'
+        mac = ap['mac']
+        model = ap['model']
+        radio_p='802.11'
+        radio_ant=''
+        for radios_index in range(len(ap['radio_table'])):
+            radio_p = radio_p + '/' + str(ap['radio_table'][radios_index]['radio'])[::-1]
+        for radios_index in range(len(ap['radio_table'])):
+            if (ap['radio_table'][radios_index]['builtin_antenna']):
+                radio_ant="INDOOR"                
+            else:
+                radio_ant="OUTDOOR"
+        if 'x' in ap:
+            lat = ap['x']
+        else:
+            lat='???'
+        if 'y' in ap:
+            lon = ap['y']
+        else:
+            lon='???'
+        if (lat != '???') and (lon != '???'):
+            map_link='https://maps.google.com/?q='+str(lat)+','+str(lon)
+        else:
+            map_link=''
+        speed = ''
+        if  'uplink' in ap :
+            speed = ap['uplink']['speed']
+        #    uplink_mac = ap['uplink']['mac']
+        
+        ip = ap['ip']
+        
+        eth_port=''
+        for ethport_index in range(len(ap['ethernet_table'])):
+            eth_port=(ap['ethernet_table'][ethport_index]['num_port'])-1
+        print(FORMAT % (ap_name, mac, model,ip,radio_p,radio_ant,speed,eth_port,lat,lon,map_link))
+        
+        fo.write(FORMAT_CSV % (ap_name, mac, model,ip,radio_p,radio_ant,speed,eth_port,lat,lon,map_link));
+fo.close()
+print(open(args.file,"r").read())        
+        
+    #print(FORMAT % (name, mac, ap_name, channel, rssi, rx, tx))
+
+    
+ #'radio_table': [{'radio': 'ng', 'name': 'wifi0'
